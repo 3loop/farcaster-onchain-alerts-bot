@@ -1,0 +1,17 @@
+{
+  "name": "farcaster-bot-template",
+  "module": "src/index.ts",
+  "type": "module",
+  "devDependencies": {
+    "@types/bun": "latest"
+  },
+  "peerDependencies": {
+    "typescript": "^5.0.0"
+  },
+  "dependencies": {
+    "@3loop/transaction-decoder": "^0.8.0",
+    "@standard-crypto/farcaster-js-hub-rest": "^1.4.1",
+    "fastify": "^4.26.2",
+    "viem": "^2.9.29"
+  }
+}
