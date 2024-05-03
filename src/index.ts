@@ -1,4 +1,3 @@
-import Fastify from "fastify";
 import { decoder } from "./decoder/decoder.js";
 import type { DecodedTx } from "@3loop/transaction-decoder";
 import { interpretTx } from "./decoder/interpreter.js";
@@ -18,24 +17,9 @@ const client = new HubRestAPIClient({
   hubUrl: FARCASTER_HUB_URL,
 });
 
-// Update chain according to the chain you want to listen to
 const publicClient = createPublicClient({
-  transport: webSocket(RPC[CHAIN_ID]),
+  transport: webSocket(RPC[CHAIN_ID].url),
 });
-
-async function decodeTx(txHash: string) {
-  try {
-    const decoded = await decoder.decodeTransaction({
-      chainID: CHAIN_ID,
-      hash: txHash,
-    });
-
-    return decoded;
-  } catch (e) {
-    console.error(JSON.stringify(e, null, 2));
-    return null;
-  }
-}
 
 async function publishToFarcaster(cast: { text: string; url: string }) {
   if (!signerPrivateKey || !fid) {
@@ -64,7 +48,11 @@ async function handleTransaction(txHash?: string) {
 
     await publicClient.waitForTransactionReceipt({ hash: txHash as Hex });
 
-    const decoded: DecodedTx | null = await decodeTx(txHash);
+    const decoded: DecodedTx | null = await decoder.decodeTransaction({
+      chainID: CHAIN_ID,
+      hash: txHash,
+    });
+
     if (!decoded) return;
 
     const interpreted = interpretTx(decoded);
@@ -73,7 +61,6 @@ async function handleTransaction(txHash?: string) {
       return;
     }
 
-    //@ts-ignore
     const text = `New trade: ${interpreted.trader} ${
       interpreted.isBuy ? "Bought" : "Sold"
     } ${interpreted.shareAmount} shares of ${interpreted.subject} for ${
@@ -93,7 +80,7 @@ async function createSubscription(address: string) {
   await publicClient.transport.subscribe({
     method: "eth_subscribe",
     params: [
-      //@ts-ignore
+      //@ts-expect-error
       "alchemy_minedTransactions",
       {
         addresses: [{ to: address }],
@@ -111,10 +98,4 @@ async function createSubscription(address: string) {
   });
 }
 
-const fastify = Fastify({ logger: true });
-
-fastify.listen({ port: 3000 }, async (err, address) => {
-  if (err) throw err;
-  console.log(`Server listening on ${address}`);
-  createSubscription(CONTRACT_ADDRESS);
-});
+createSubscription(CONTRACT_ADDRESS);

@@ -1,5 +1,8 @@
 export const RPC = {
-  8453: `wss://base-mainnet.g.alchemy.com/v2/${process.env.ALCHEMY_API_KEY}`,
+  8453: {
+    url: `wss://base-mainnet.g.alchemy.com/v2/${process.env.ALCHEMY_API_KEY}`,
+    supportTraceAPI: false,
+  },
 };
 
 export const CONTRACT_ADDRESS = "0xcf205808ed36593aa40a44f10c7f7c2f67d4a4d4";

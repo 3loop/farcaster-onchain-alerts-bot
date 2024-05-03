@@ -1,4 +1,4 @@
-import { createPublicClient, http, webSocket } from "viem";
+import { createPublicClient, webSocket } from "viem";
 import type { ContractData } from "@3loop/transaction-decoder";
 import {
   TransactionDecoder,
@@ -44,18 +44,18 @@ const contractMetaStore = {
 };
 
 const getPublicClient = (chainId: number) => {
-  const url = RPC[chainId as keyof typeof RPC];
+  const rpc = RPC[chainId as keyof typeof RPC];
 
-  if (!url) {
+  if (!rpc) {
     throw new Error(`Missing RPC provider for chain ID ${chainId}`);
   }
 
   return {
     client: createPublicClient({
-      transport: webSocket(url),
+      transport: webSocket(rpc.url),
     }),
     config: {
-      supportTraceAPI: false,
+      supportTraceAPI: rpc.supportTraceAPI,
     },
   };
 };

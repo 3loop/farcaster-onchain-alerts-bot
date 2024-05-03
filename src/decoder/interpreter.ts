@@ -3,7 +3,9 @@
 export const interpretTx = function transformEvent(event) {
   const tradeEvent = event.interactions.filter(
     (e) => e.event.eventName === "Trade"
-  )?.[0];
+  )[0];
+
+  if (!tradeEvent) return event;
 
   const newEvent = {
     txHash: event.txHash,
@@ -12,7 +14,6 @@ export const interpretTx = function transformEvent(event) {
     isBuy: tradeEvent.event.params.isBuy,
     shareAmount: tradeEvent.event.params.shareAmount,
     supply: tradeEvent.event.params.supply,
-    price: 0,
   };
 
   if (newEvent.isBuy === "true" && event.assetsSent[0]) {
@@ -24,4 +25,4 @@ export const interpretTx = function transformEvent(event) {
   }
 
   return newEvent;
-}
+};
