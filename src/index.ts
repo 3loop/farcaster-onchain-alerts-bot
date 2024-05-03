@@ -48,7 +48,7 @@ async function handleTransaction(txHash?: string) {
 
     await publicClient.waitForTransactionReceipt({ hash: txHash as Hex });
 
-    const decoded: DecodedTx | null = await decoder.decodeTransaction({
+    const decoded = await decoder.decodeTransaction({
       chainID: CHAIN_ID,
       hash: txHash,
     });
@@ -56,8 +56,10 @@ async function handleTransaction(txHash?: string) {
     if (!decoded) return;
 
     const interpreted = interpretTx(decoded);
+
+    //Ignore undecoded transactions or zero shareAmount transactions
     if (!interpreted.shareAmount || interpreted.shareAmount === "0") {
-      console.log("No defined action for this transaction.", txHash);
+      console.log("No defined action for this transaction: ", txHash);
       return;
     }
 
