@@ -1,5 +1,8 @@
 # Farcaster bot for on-chain alerts
 
+> [!NOTE]  
+> You can jump to the [Loop Decoder Documentation](https://loop-decoder.3loop.io/recipes/fc-bot/) to read the entire tutorial in one place.
+
 Learn how to create a Farcaster bot that sends human-readable alerts about transactions happening on-chain. You can customize this bot for any EVM-compatible blockchain, and you don't need any specific knowledge about EVM transaction decoding and interpretation.
 
 For the demo, we've used a [friend.tech](https://www.friend.tech) smart contract to track trading activity on the Base Mainnet network. By modifying the contract address and environment variables, you can create a bot to track smart contracts on any other EVM chain.
@@ -51,7 +54,7 @@ bun run src/index.ts
 
 ### Step 5: Check the guide to learn how it works and modify it
 
-The [guide](https://loop-decoder.3loop.io/guides/fc-bot/) describes all components of the bot and how to modify it to monitor the different EVM contacts.
+The [guide](https://loop-decoder.3loop.io/recipes/fc-bot/) describes all components of the bot and how to modify it to monitor the different EVM contacts.
 
 
 ## Feedback

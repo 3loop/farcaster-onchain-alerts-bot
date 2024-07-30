@@ -1,5 +1,10 @@
 import { createPublicClient, webSocket } from "viem";
-import type { ContractData } from "@3loop/transaction-decoder";
+import type {
+  ContractABI,
+  ContractData,
+  VanillaAbiStore,
+  VanillaContractMetaStore,
+} from "@3loop/transaction-decoder";
 import {
   TransactionDecoder,
   FourByteStrategyResolver,
@@ -8,38 +13,77 @@ import {
 } from "@3loop/transaction-decoder";
 import { RPC } from "../constants";
 
-const abiCache = new Map<string, string>();
+const abiCache = new Map<string, ContractABI>();
 const contractMetaCache = new Map<string, ContractData>();
 
-const abiStore = {
+const abiStore: VanillaAbiStore = {
   strategies: [
     EtherscanStrategyResolver({
       apikey: process.env.ETHERSCAN_API_KEY || "",
     }),
     FourByteStrategyResolver(),
   ],
-  get: async (req: { address: string }) => {
-    return Promise.resolve(abiCache.get(req.address.toLowerCase()) ?? null);
-  },
-  set: async (req: { address?: Record<string, string> }) => {
-    const addresses = Object.keys(req.address ?? {});
+  get: async ({ address, event, signature }) => {
+    const value = abiCache.get(address);
+    if (value) {
+      return {
+        status: "success",
+        result: value,
+      };
+    } else if (event != null && value) {
+      return {
+        status: "success",
+        result: value,
+      };
+    } else if (signature != null && value) {
+      return {
+        status: "success",
+        result: value,
+      };
+    }
 
-    addresses.forEach((address) => {
-      abiCache.set(address.toLowerCase(), req.address?.[address] ?? "");
-    });
+    return {
+      status: "empty",
+      result: null,
+    };
+  },
+  set: async (_key, value) => {
+    if (value.status === "success") {
+      if (value.result.type === "address") {
+        abiCache.set(value.result.address, value.result);
+      } else if (value.result.type === "event") {
+        abiCache.set(value.result.event, value.result);
+      } else if (value.result.type === "func") {
+        abiCache.set(value.result.signature, value.result);
+      }
+    }
   },
 };
 
-const contractMetaStore = {
+const contractMetaStore: VanillaContractMetaStore = {
   strategies: [ERC20RPCStrategyResolver],
-  get: async (req: { address: string; chainID: number }) => {
-    return contractMetaCache.get(req.address.toLowerCase()) ?? null;
+  get: async ({ address, chainID }) => {
+    const key = `${address}-${chainID}`.toLowerCase();
+    const value = contractMetaCache.get(key);
+
+    if (value) {
+      return {
+        status: "success",
+        result: value,
+      };
+    }
+
+    return {
+      status: "empty",
+      result: null,
+    };
   },
-  set: async (
-    req: { address: string; chainID: number },
-    data: ContractData
-  ) => {
-    contractMetaCache.set(req.address.toLowerCase(), data);
+  set: async ({ address, chainID }, result) => {
+    const key = `${address}-${chainID}`.toLowerCase();
+
+    if (result.status === "success") {
+      contractMetaCache.set(key, result.result);
+    }
   },
 };
 

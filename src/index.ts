@@ -1,5 +1,4 @@
 import { decoder } from "./decoder/decoder.js";
-import type { DecodedTx } from "@3loop/transaction-decoder";
 import { interpretTx } from "./decoder/interpreter.js";
 import {
   CHAIN_ID,
@@ -58,7 +57,7 @@ async function handleTransaction(txHash?: string) {
     const interpreted = interpretTx(decoded);
 
     //Ignore undecoded transactions or zero shareAmount transactions
-    if (!interpreted.shareAmount || interpreted.shareAmount === "0") {
+    if (!interpreted || !interpreted.shareAmount || interpreted.shareAmount === "0") {
       console.log("No defined action for this transaction: ", txHash);
       return;
     }
