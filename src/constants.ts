@@ -1,7 +1,9 @@
+export const WS_RPC_URL = `wss://base-mainnet.g.alchemy.com/v2/${process.env.ALCHEMY_API_KEY}`;
+
 export const RPC = {
   8453: {
-    url: `wss://base-mainnet.g.alchemy.com/v2/${process.env.ALCHEMY_API_KEY}`,
-    supportTraceAPI: false,
+    url: WS_RPC_URL,
+    traceAPI: "geth",
   },
 };
 

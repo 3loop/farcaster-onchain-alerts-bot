@@ -96,10 +96,10 @@ const getPublicClient = (chainId: number) => {
 
   return {
     client: createPublicClient({
-      transport: webSocket(rpc.url),
+      transport: webSocket("wss://base.gateway.tenderly.co/6gIs3xuu3tbmjnHknGD1Z2"),
     }),
     config: {
-      supportTraceAPI: rpc.supportTraceAPI,
+      traceAPI: rpc.traceAPI as "parity" | "geth" | "none",
     },
   };
 };
@@ -108,5 +108,5 @@ export const decoder = new TransactionDecoder({
   getPublicClient: getPublicClient,
   abiStore: abiStore,
   contractMetaStore: contractMetaStore,
-  logging: false,
+  logLevel: "None",
 });

@@ -1,11 +1,9 @@
-//@ts-nocheck
+import type { DecodedTx, Asset } from "@3loop/transaction-decoder";
 
-import type { DecodedTx } from "@3loop/transaction-decoder";
-
-function assetsSent(s, r) {
+function assetsSent(s: Asset[], r: string) {
   return s.filter((e) => e.from.toLowerCase() === r.toLowerCase());
 }
-function assetsReceived(s, r) {
+function assetsReceived(s: Asset[], r: string) {
   return s.filter((e) => e.to.toLowerCase() === r.toLowerCase());
 }
 
@@ -16,16 +14,24 @@ export const interpretTx = function transformEvent(event: DecodedTx) {
 
   if (!tradeEvent) return;
 
+  const eventParams = tradeEvent.event.params as {
+    trader: string;
+    subject: string;
+    isBuy: string;
+    shareAmount: string;
+    supply: string;
+  };
+
   const newEvent = {
     txHash: event.txHash,
-    trader: tradeEvent.event.params.trader,
-    subject: tradeEvent.event.params.subject,
-    isBuy: tradeEvent.event.params.isBuy,
-    shareAmount: tradeEvent.event.params.shareAmount,
-    supply: tradeEvent.event.params.supply,
+    trader: eventParams.trader,
+    subject: eventParams.subject,
+    isBuy: eventParams.isBuy,
+    shareAmount: eventParams.shareAmount,
+    supply: eventParams.supply,
     assetsSent: assetsSent(event.transfers, event.fromAddress),
     assetsReceived: assetsReceived(event.transfers, event.fromAddress),
-    price: null,
+    price: undefined as string | undefined,
   };
 
   if (newEvent.isBuy === "true" && newEvent.assetsSent[0]) {

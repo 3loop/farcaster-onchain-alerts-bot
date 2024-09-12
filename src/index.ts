@@ -57,7 +57,11 @@ async function handleTransaction(txHash?: string) {
     const interpreted = interpretTx(decoded);
 
     //Ignore undecoded transactions or zero shareAmount transactions
-    if (!interpreted || !interpreted.shareAmount || interpreted.shareAmount === "0") {
+    if (
+      !interpreted ||
+      !interpreted.shareAmount ||
+      interpreted.shareAmount === "0"
+    ) {
       console.log("No defined action for this transaction: ", txHash);
       return;
     }
@@ -76,9 +80,10 @@ async function handleTransaction(txHash?: string) {
     console.error(e);
   }
 }
+let lastProcessedAt = Date.now();
 
 async function createSubscription(address: string) {
-  await publicClient.transport.subscribe({
+  const response = await publicClient.transport.subscribe({
     method: "eth_subscribe",
     params: [
       //@ts-expect-error
@@ -90,13 +95,25 @@ async function createSubscription(address: string) {
       },
     ],
     onData: (data: any) => {
-      const hash = data?.result?.transaction?.hash;
-      if (hash) handleTransaction(hash);
+      const txHash = data?.result?.transaction?.hash;
+      lastProcessedAt = Date.now();
+      if (txHash) handleTransaction(txHash);
     },
     onError: (error: any) => {
       console.error(error);
     },
   });
+
+  const interval = setInterval(() => {
+    if (Date.now() - lastProcessedAt > 60_000 * 5) {
+      console.error(
+        "No new transactions in the last 5 minutes, restarting subscription"
+      );
+      clearInterval(interval);
+      response.unsubscribe();
+      createSubscription(CONTRACT_ADDRESS);
+    }
+  }, 60_000 * 5);
 }
 
 createSubscription(CONTRACT_ADDRESS);
