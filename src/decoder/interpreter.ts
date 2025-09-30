@@ -1,46 +1,98 @@
-import type { DecodedTx, Asset } from "@3loop/transaction-decoder";
+import type { DecodedTransaction, Asset } from "@3loop/transaction-decoder";
 
-function assetsSent(s: Asset[], r: string) {
-  return s.filter((e) => e.from.toLowerCase() === r.toLowerCase());
-}
-function assetsReceived(s: Asset[], r: string) {
-  return s.filter((e) => e.to.toLowerCase() === r.toLowerCase());
-}
+export const displayAsset = (asset?: Asset): string => {
+  if (!asset?.type) return "unknown asset";
 
-export const interpretTx = function transformEvent(event: DecodedTx) {
-  const tradeEvent = event.interactions.filter(
-    (e) => e.event.eventName === "Trade"
-  )[0];
+  const symbol = asset.type === "ERC20" ? asset.symbol : asset.name;
 
-  if (!tradeEvent) return;
+  if (symbol) return asset.amount + " " + symbol;
 
-  const eventParams = tradeEvent.event.params as {
-    trader: string;
-    subject: string;
-    isBuy: string;
-    shareAmount: string;
-    supply: string;
-  };
+  return (
+    asset.amount +
+    " " +
+    asset.address.slice(0, 6) +
+    "..." +
+    asset.address.slice(-4)
+  );
+};
 
+/* 
+Interpreter is a funciton that transforms a decoded transaction into a more human-readable format.
+Intepreter contains:
+- more contract-specific logic 
+- can understand important context of the transaction depending on the method/events of the decoded transaction
+- creates a human-readable action string
+*/
+
+export const interpretTx = function transformEvent(event: DecodedTransaction) {
+  const methodName = event.methodCall.name;
   const newEvent = {
     txHash: event.txHash,
-    trader: eventParams.trader,
-    subject: eventParams.subject,
-    isBuy: eventParams.isBuy,
-    shareAmount: eventParams.shareAmount,
-    supply: eventParams.supply,
-    assetsSent: assetsSent(event.transfers, event.fromAddress),
-    assetsReceived: assetsReceived(event.transfers, event.fromAddress),
-    price: undefined as string | undefined,
+    fromAddress: event.fromAddress,
+    toAddress: event.toAddress,
+    assetsSent: event.transfers.filter(
+      (e) => e.from.toLowerCase() === event.fromAddress.toLowerCase()
+    ),
+    assetsReceived: event.transfers.filter(
+      (e) => e.to.toLowerCase() === event.fromAddress.toLowerCase()
+    ),
   };
 
-  if (newEvent.isBuy === "true" && newEvent.assetsSent[0]) {
-    newEvent.price = newEvent.assetsSent[0].amount;
-  }
+  switch (methodName) {
+    case "repay":
+    case "repayWithPermit":
+    case "repayWithATokens":
+      return {
+        ...newEvent,
+        type: "repay",
+        action: "User repaid " + displayAsset(newEvent.assetsSent[0]),
+      };
 
-  if (newEvent.isBuy === "false" && newEvent.assetsReceived[0].amount) {
-    newEvent.price = newEvent.assetsReceived[0].amount;
-  }
+    case "deposit":
+    case "supplyWithPermit":
+    case "supply":
+      return {
+        ...newEvent,
+        type: "deposit",
+        action: "User deposited " + displayAsset(newEvent.assetsSent[0]),
+      };
 
-  return newEvent;
+    case "borrow":
+      return {
+        ...newEvent,
+        type: "borrow",
+        action: "User borrowed " + displayAsset(newEvent.assetsReceived[0]),
+      };
+
+    case "withdraw":
+      return {
+        ...newEvent,
+        type: "withdraw",
+        action: "User withdrew " + displayAsset(newEvent.assetsReceived[0]),
+      };
+
+    case "flashLoanSimple":
+      return {
+        ...newEvent,
+        type: "flashLoan",
+        action:
+          "Executed flash loan with " + displayAsset(newEvent.assetsSent[0]),
+      };
+
+    case "setUserUseReserveAsCollateral":
+      const assetAddress = event.methodCall.params?.[0]?.value;
+      const enabled = event.methodCall.params?.[1]?.value === "true";
+      return {
+        ...newEvent,
+        type: "setUserUseReserveAsCollateral",
+        action: `User ${
+          enabled ? "enabled" : "disabled"
+        } ${assetAddress} as collateral`,
+      };
+  }
+  return {
+    ...newEvent,
+    type: "unknown",
+    action: "Unknown action",
+  };
 };

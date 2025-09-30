@@ -5,7 +5,7 @@ import {
   CONTRACT_ADDRESS,
   ETHERSCAN_ENDPOINT,
   FARCASTER_HUB_URL,
-  RPC,
+  ALCHEMY_WS_RPC_URL,
 } from "./constants.js";
 import { HubRestAPIClient } from "@standard-crypto/farcaster-js-hub-rest";
 import { createPublicClient, webSocket, type Hex } from "viem";
@@ -16,8 +16,8 @@ const client = new HubRestAPIClient({
   hubUrl: FARCASTER_HUB_URL,
 });
 
-const publicClient = createPublicClient({
-  transport: webSocket(RPC[CHAIN_ID].url),
+const wsClient = createPublicClient({
+  transport: webSocket(ALCHEMY_WS_RPC_URL),
 });
 
 async function publishToFarcaster(cast: { text: string; url: string }) {
@@ -42,10 +42,10 @@ async function publishToFarcaster(cast: { text: string; url: string }) {
 
 async function handleTransaction(txHash?: string) {
   try {
-    console.log("Transaction mined!");
+    console.log(`Transaction ${txHash} mined!`);
     if (!txHash) return;
 
-    await publicClient.waitForTransactionReceipt({ hash: txHash as Hex });
+    await wsClient.waitForTransactionReceipt({ hash: txHash as Hex });
 
     const decoded = await decoder.decodeTransaction({
       chainID: CHAIN_ID,
@@ -56,21 +56,12 @@ async function handleTransaction(txHash?: string) {
 
     const interpreted = interpretTx(decoded);
 
-    //Ignore undecoded transactions or zero shareAmount transactions
-    if (
-      !interpreted ||
-      !interpreted.shareAmount ||
-      interpreted.shareAmount === "0"
-    ) {
-      console.log("No defined action for this transaction: ", txHash);
-      return;
-    }
+    console.log("Interpreted transaction:", interpreted);
 
-    const text = `New trade: ${interpreted.trader} ${
-      interpreted.isBuy ? "Bought" : "Sold"
-    } ${interpreted.shareAmount} shares of ${interpreted.subject} for ${
-      interpreted.price
-    } ETH`;
+    if (interpreted.type === "unknown") return;
+
+    // if transaction is not unknown, publish to farcaster
+    const text = interpreted.action;
 
     const message = { text: text, url: `${ETHERSCAN_ENDPOINT}/tx/${txHash}` };
     console.log("Message to publish:", message);
@@ -82,38 +73,44 @@ async function handleTransaction(txHash?: string) {
 }
 let lastProcessedAt = Date.now();
 
-async function createSubscription(address: string) {
-  const response = await publicClient.transport.subscribe({
-    method: "eth_subscribe",
-    params: [
-      //@ts-expect-error
-      "alchemy_minedTransactions",
-      {
-        addresses: [{ to: address }],
-        includeRemoved: false,
-        hashesOnly: true,
-      },
-    ],
-    onData: (data: any) => {
-      const txHash = data?.result?.transaction?.hash;
-      lastProcessedAt = Date.now();
-      if (txHash) handleTransaction(txHash);
-    },
-    onError: (error: any) => {
-      console.error(error);
-    },
-  });
+async function createSubscription() {
+  console.log("Creating subscription...");
 
-  const interval = setInterval(() => {
-    if (Date.now() - lastProcessedAt > 60_000 * 5) {
-      console.error(
-        "No new transactions in the last 5 minutes, restarting subscription"
-      );
-      clearInterval(interval);
-      response.unsubscribe();
-      createSubscription(CONTRACT_ADDRESS);
-    }
-  }, 60_000 * 5);
+  try {
+    const response = await wsClient.transport.subscribe({
+      params: [
+        //@ts-expect-error
+        "alchemy_minedTransactions",
+        {
+          //@ts-expect-error
+          addresses: [{ to: CONTRACT_ADDRESS }],
+          includeRemoved: false,
+          // hashesOnly: true,
+        },
+      ],
+      onData: (data: any) => {
+        const txHash = data?.result?.transaction?.hash;
+        lastProcessedAt = Date.now();
+        if (txHash) handleTransaction(txHash);
+      },
+      onError: (error: any) => {
+        console.error(error);
+      },
+    });
+
+    const interval = setInterval(() => {
+      if (Date.now() - lastProcessedAt > 60_000 * 5) {
+        console.error(
+          "No new transactions in the last 5 minutes, restarting subscription"
+        );
+        clearInterval(interval);
+        response.unsubscribe();
+        createSubscription();
+      }
+    }, 60_000 * 5);
+  } catch (error) {
+    console.error(error);
+  }
 }
 
-createSubscription(CONTRACT_ADDRESS);
+createSubscription();
